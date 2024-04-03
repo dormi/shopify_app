@@ -5,13 +5,17 @@ module ShopifyApp
     extend ActiveSupport::Concern
 
     def activate_shopify_session
-      if current_shopify_session.blank?
-        retrieve_session_from_token_exchange
-      end
+      begin
+        if current_shopify_session.blank?
+          retrieve_session_from_token_exchange
+        end
 
-      if ShopifyApp.configuration.check_session_expiry_date && current_shopify_session.expired?
-        @current_shopify_session = nil
-        retrieve_session_from_token_exchange
+        if ShopifyApp.configuration.check_session_expiry_date && current_shopify_session.expired?
+          @current_shopify_session = nil
+          retrieve_session_from_token_exchange
+        end
+      rescue ShopifyAPI::Errors::CookieNotFoundError
+        return respond_to_invalid_session_token
       end
 
       begin
@@ -117,21 +121,21 @@ module ShopifyApp
     def respond_to_invalid_session_token
       # TODO: Implement this method to handle invalid session tokens
 
-      # if request.xhr?
-      # response.set_header("X-Shopify-Retry-Invalid-Session-Request", 1)
-      # unauthorized_response = { message: :unauthorized }
-      # render(json: { errors: [unauthorized_response] }, status: :unauthorized)
-      # else
-      # patch_session_token_url = "#{ShopifyAPI::Context.host}/patch_session_token"
-      # patch_session_token_params = request.query_parameters.except(:id_token)
+      if request.xhr?
+        response.set_header("X-Shopify-Retry-Invalid-Session-Request", 1)
+        unauthorized_response = { message: :unauthorized }
+        render(json: { errors: [unauthorized_response] }, status: :unauthorized)
+      else
+        patch_session_token_url = "#{ShopifyApp.configuration.root_url}/patch_session_token"
+        patch_session_token_params = request.query_parameters.except(:id_token)
 
-      # bounce_url = "#{ShopifyAPI::Context.host}#{request.path}?#{patch_session_token_params.to_query}"
+        bounce_url = "#{request.path}?#{patch_session_token_params.to_query}"
 
-      # # App Bridge will trigger a fetch to the URL in shopify-reload, with a new session token in headers
-      # patch_session_token_params["shopify-reload"] = bounce_url
+        # App Bridge will trigger a fetch to the URL in shopify-reload, with a new session token in headers
+        patch_session_token_params["shopify-reload"] = bounce_url
 
-      # redirect_to("#{patch_session_token_url}?#{patch_session_token_params.to_query}", allow_other_host: true)
-      # end
+        redirect_to("#{patch_session_token_url}?#{patch_session_token_params.to_query}", allow_other_host: true)
+      end
     end
 
     def online_token_configured?
