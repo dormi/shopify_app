@@ -167,7 +167,19 @@ class TokenExchangeControllerTest < ActionController::TestCase
     end
   end
 
-  test "Deletes existing session and re-raises error when an API 401 error is raised by the action" do
+  test "Wraps action in with_token_refetch" do
+    ShopifyApp::SessionRepository.store_shop_session(@offline_session)
+    ShopifyAPI::Utils::SessionUtils.stubs(:current_session_id).returns(@offline_session_id)
+
+    ApiClass.expects(:perform)
+    @controller.expects(:with_token_refetch).yields
+
+    with_application_test_routes do
+      get :make_api_call, params: { shop: @shop }
+    end
+  end
+
+  test "Deletes existing session and re-raises error when an API 401 error is not fixed by with_token_refetch" do
     ShopifyApp::SessionRepository.store_shop_session(@offline_session)
     ShopifyAPI::Utils::SessionUtils.stubs(:current_session_id).returns(@offline_session_id)
 
@@ -176,6 +188,7 @@ class TokenExchangeControllerTest < ActionController::TestCase
 
     ShopifyAPI::Auth::TokenExchange.expects(:exchange_token).never
     ShopifyApp::SessionRepository.expects(:delete_session).with(@offline_session_id)
+    @controller.stubs(:with_token_refetch).yields
 
     with_application_test_routes do
       response_error = assert_raises(ShopifyAPI::Errors::HttpResponseError) do
