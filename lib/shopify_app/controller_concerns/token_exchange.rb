@@ -4,6 +4,11 @@ module ShopifyApp
   module TokenExchange
     extend ActiveSupport::Concern
 
+    INVALID_SESSION_TOKEN_ERRORS = [
+      ShopifyAPI::Errors::CookieNotFoundError,
+      ShopifyAPI::Errors::InvalidJwtTokenError,
+    ].freeze
+
     def activate_shopify_session
       begin
         if current_shopify_session.blank?
@@ -14,7 +19,7 @@ module ShopifyApp
           @current_shopify_session = nil
           retrieve_session_from_token_exchange
         end
-      rescue ShopifyAPI::Errors::CookieNotFoundError
+      rescue *INVALID_SESSION_TOKEN_ERRORS
         return respond_to_invalid_session_token
       end
 
@@ -76,8 +81,7 @@ module ShopifyApp
 
     def exchange_token(shop:, session_token:, requested_token_type:)
       if session_token.blank?
-        # respond_to_invalid_session_token
-        return
+        raise ShopifyAPI::Errors::InvalidJwtTokenError, "Session token is blank during TokenExchange"
       end
 
       begin
@@ -87,8 +91,8 @@ module ShopifyApp
           requested_token_type: requested_token_type,
         )
       rescue ShopifyAPI::Errors::InvalidJwtTokenError
-        # respond_to_invalid_session_token
-        return
+        ShopifyApp::Logger.error("Invalid JWT token error occurred during the token exchange")
+        raise
       rescue ShopifyAPI::Errors::HttpResponseError => error
         ShopifyApp::Logger.error(
           "A #{error.code} error (#{error.class}) occurred during the token exchange. Response: #{error.response.body}",
