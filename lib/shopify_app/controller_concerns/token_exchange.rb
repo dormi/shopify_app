@@ -5,35 +5,40 @@ module ShopifyApp
     extend ActiveSupport::Concern
 
     def activate_shopify_session
-      if current_shopify_session.blank?
-        retrieve_session_from_token_exchange
-      end
-
-      if ShopifyApp.configuration.check_session_expiry_date && current_shopify_session.expired?
-        retrieve_session_from_token_exchange
-      end
+      retrieve_session_from_token_exchange if current_shopify_session.blank? || should_exchange_expired_token?
 
       begin
         ShopifyApp::Logger.debug("Activating Shopify session")
         ShopifyAPI::Context.activate_session(current_shopify_session)
         yield
+      rescue ShopifyAPI::Errors::HttpResponseError => error
+        if error.code == 401
+          ShopifyApp::Logger.debug("Admin API returned a 401 Unauthorized error, deleting current access token.")
+          ShopifyApp::SessionRepository.delete_session(current_shopify_session_id)
+        end
+        raise
       ensure
         ShopifyApp::Logger.debug("Deactivating session")
         ShopifyAPI::Context.deactivate_session
       end
     end
 
-    def current_shopify_session
-      @current_shopify_session ||= begin
-        session_id = ShopifyAPI::Utils::SessionUtils.current_session_id(
-          request.headers["HTTP_AUTHORIZATION"],
-          nil,
-          online_token_configured?,
-        )
-        return nil unless session_id
+    def should_exchange_expired_token?
+      ShopifyApp.configuration.check_session_expiry_date && current_shopify_session.expired?
+    end
 
-        ShopifyApp::SessionRepository.load_session(session_id)
-      end
+    def current_shopify_session
+      return unless current_shopify_session_id
+
+      @current_shopify_session ||= ShopifyApp::SessionRepository.load_session(current_shopify_session_id)
+    end
+
+    def current_shopify_session_id
+      @current_shopify_session_id ||= ShopifyAPI::Utils::SessionUtils.current_session_id(
+        request.headers["HTTP_AUTHORIZATION"],
+        nil,
+        online_token_configured?,
+      )
     end
 
     def current_shopify_domain
