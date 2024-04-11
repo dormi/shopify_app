@@ -6,32 +6,10 @@ class ShopifyApp::AdminAPI::WithTokenRefetchTest < ActiveSupport::TestCase
   include ShopifyApp::AdminAPI::WithTokenRefetch
 
   def setup
-    @session = ShopifyAPI::Auth::Session.new(
-      id: "session-id",
-      shop: "shop",
-      state: "aaa",
-      access_token: "old-token",
-      scope: "read_products,read_themes",
-      associated_user_scope: "read_products",
-      expires: 1.hour.ago,
-      associated_user: build_user,
-      is_online: true,
-      shopify_session_id: "123",
-    )
+    @session = ShopifyAPI::Auth::Session.new(id: "session-id", shop: "shop", access_token: "old-token")
     @session_token = "a-session-token"
 
-    @new_session = ShopifyAPI::Auth::Session.new(
-      id: "session-id",
-      shop: "shop",
-      state: nil,
-      access_token: "new-token",
-      scope: "write_products,read_themes",
-      associated_user_scope: "write_products",
-      expires: 1.day.from_now,
-      associated_user: build_user,
-      is_online: true,
-      shopify_session_id: "456",
-    )
+    @new_session = ShopifyAPI::Auth::Session.new(id: "session-id", shop: "shop", access_token: "new-token")
 
     @fake_admin_api = stub(:admin_api)
   end
@@ -72,14 +50,7 @@ class ShopifyApp::AdminAPI::WithTokenRefetchTest < ActiveSupport::TestCase
       @fake_admin_api.query
     end
 
-    assert_equal @new_session.shop, @session.shop
-    assert_nil @session.state
     assert_equal @new_session.access_token, @session.access_token
-    assert_equal @new_session.scope, @session.scope
-    assert_equal @new_session.associated_user_scope, @session.associated_user_scope
-    assert_equal @new_session.expires, @session.expires
-    assert_equal @new_session.associated_user, @session.associated_user
-    assert_equal @new_session.shopify_session_id, @session.shopify_session_id
   end
 
   test "#with_token_refetch deletes existing token and re-raises when 401 persists" do
@@ -121,20 +92,5 @@ class ShopifyApp::AdminAPI::WithTokenRefetchTest < ActiveSupport::TestCase
     end
 
     assert_equal reraised_error, api_error
-  end
-
-  private
-
-  def build_user
-    ShopifyAPI::Auth::AssociatedUser.new(
-      id: 1,
-      first_name: "Hello #{Time.now}",
-      last_name: "World",
-      email: "Email",
-      email_verified: true,
-      account_owner: true,
-      locale: "en",
-      collaborator: false,
-    )
   end
 end
