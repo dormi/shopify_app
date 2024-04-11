@@ -20,6 +20,7 @@ Sessions are used to make contextual API calls for either a shop (offline sessio
         - [**Shop Sessions - `EnsureInstalled`**](#shop-sessions---ensureinstalled)
         - [User Sessions - `EnsureHasSession`](#user-sessions---ensurehassession)
       - [Getting sessions from a Shop or User model record - 'with\_shopify\_session'](#getting-sessions-from-a-shop-or-user-model-record---with_shopify_session)
+      - [Re-fetching an access token when API returns Unauthorized](#re-fetching-an-access-token-when-api-returns-unauthorized)
   - [Access scopes](#access-scopes)
     - [`ShopifyApp::ShopSessionStorageWithScopes`](#shopifyappshopsessionstoragewithscopes)
     - [`ShopifyApp::UserSessionStorageWithScopes`](#shopifyappusersessionstoragewithscopes)
@@ -27,7 +28,7 @@ Sessions are used to make contextual API calls for either a shop (offline sessio
   - [Migrating from `ShopifyApi::Auth::SessionStorage` to `ShopifyApp::SessionStorage`](#migrating-from-shopifyapiauthsessionstorage-to-shopifyappsessionstorage)
 
 ## Sessions
-#### Types of session tokens
+#### Types of session access tokens
 - **Shop** ([offline access](https://shopify.dev/docs/apps/auth/oauth/access-modes#offline-access))
   - Access token is linked to the store
   - Meant for long-term access to a store, where no user interaction is involved
@@ -38,7 +39,7 @@ Sessions are used to make contextual API calls for either a shop (offline sessio
 
 ⚠️  [Read more about Online vs. Offline access here](https://shopify.dev/apps/auth/oauth/access-modes).
 
-#### Session token storage
+#### Session access token storage
 ##### Shop (offline) token storage
 ⚠️ All apps must have a shop session storage, if you started from the [Ruby App Template](https://github.com/Shopify/shopify-app-template-ruby), it's already configured to have a Shop model by default.
 
@@ -152,7 +153,7 @@ class MyController < ApplicationController
 
     client = ShopifyAPI::Clients::Graphql::Admin.new(session: current_session)
     client.query(
-    #...
+      # ...
     )
   end
 end
@@ -171,7 +172,7 @@ class MyController < ApplicationController
 
     client = ShopifyAPI::Clients::Graphql::Admin.new(session: current_session)
     client.query(
-    #...
+      # ...
     )
   end
 end
@@ -200,6 +201,66 @@ user = User.find_by(shopify_user_id: "my_user_id")
 user.with_shopify_session do
   ShopifyAPI::Product.find(id: product_id)
   # This will call the Shopify API with my_user_id's access token
+end
+```
+
+#### Re-fetching an access token when API returns Unauthorized
+
+When using `ShopifyApp::EnsureHasSession` and the `new_embedded_auth_strategy` configuration, any **unhandled** Unauthorized `ShopifyAPI::Errors::HttpResponseError` will cause the app to perform token exchange to fetch a new access token from Shopify and the action to be retried once.
+
+```ruby
+class MyController < ApplicationController
+  include ShopifyApp::EnsureHasSession
+
+  def index
+    client = ShopifyAPI::Clients::Graphql::Admin.new(session: current_shopify_session)
+    client.query(options) # when this raises an Unauthorized error from Shopify, EnsureHasSession will retry the action once after performing token exchange
+  end
+end
+```
+
+If the error is being rescued in the action, it's still possible to perform token exchange and retry again with the `with_token_refetch` method provided by `EnsureHasSession`.
+
+```ruby
+class MyController < ApplicationController
+  include ShopifyApp::EnsureHasSession
+
+  def index
+    client = ShopifyAPI::Clients::Graphql::Admin.new(session: current_shopify_session)
+    with_token_refetch(current_shopify_session, session_token) do # Unauthorized errors raised in this block will initiate token exchange and the block will be retried once
+      client.query(options)
+    end
+  rescue => error
+    # app's specific error handling
+  end
+end
+```
+
+It's also possible to use `with_token_refetch` on classes other than the controller by including the `ShopifyApp::AdminAPI::WithTokenRefetch` module and passing in the session and the current request's `session_token`, which is provided by `ShopifyApp::EnsureHasSession`.
+
+```ruby
+# my_controller.rb
+class MyController < ApplicationController
+  include ShopifyApp::EnsureHasSession
+
+  def index
+    # session_token is a method provided by EnsureHasSession
+    MyClass.new.do_things(current_shopify_session, session_token)
+  end
+end
+
+# my_class.rb
+class MyClass
+  include ShopifyApp::AdminAPI::WithTokenRefetch
+
+  def do_things(session, session_token)
+    client = ShopifyAPI::Clients::Graphql::Admin.new(session: session)
+    with_token_refetch(session, session_token) do # Unauthorized errors raised in this block will initiate token exchange and the block will be retried once
+      client.query(options)
+    end
+  rescue => error
+    # app's specific error handling
+  end
 end
 ```
 
