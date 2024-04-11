@@ -63,7 +63,7 @@ class TokenExchangeControllerTest < ActionController::TestCase
     @offline_session_id = "offline_#{@shop}"
     @online_session_id = "online_#{@user.id}"
 
-    ShopifyApp.configuration.check_session_expiry_date = false
+    ShopifyApp.configuration.check_session_expiry_date = true
     ShopifyApp.configuration.custom_post_authenticate_tasks = MockPostAuthenticateTasks
   end
 
@@ -123,7 +123,6 @@ class TokenExchangeControllerTest < ActionController::TestCase
   end
 
   test "Exchange token again if current user session is expired" do
-    ShopifyApp.configuration.check_session_expiry_date = true
     ShopifyApp::SessionRepository.user_storage = ShopifyApp::InMemoryUserSessionStore
     ShopifyApp::SessionRepository.store_user_session(@online_session, @user)
     @online_session.stubs(:expired?).returns(true)

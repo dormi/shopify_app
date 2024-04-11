@@ -16,6 +16,8 @@ class ShopifyApp::Auth::TokenExchangeTest < ActiveSupport::TestCase
 
     @offline_session = build_offline_session
     @online_session = build_online_session
+
+    ShopifyApp.configuration.post_authenticate_tasks.stubs(:perform)
   end
 
   test "#perform exchanges offline token then stores it when only shop session store is configured" do
@@ -23,7 +25,7 @@ class ShopifyApp::Auth::TokenExchangeTest < ActiveSupport::TestCase
       shop: @shop,
       session_token: @session_token,
       requested_token_type: OFFLINE_ACCESS_TOKEN_TYPE,
-    ).returns(@offline_session)
+    ).once.returns(@offline_session)
 
     assert_nil ShopifyApp::SessionRepository.load_session(@offline_session.id)
 

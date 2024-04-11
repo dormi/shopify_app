@@ -56,8 +56,9 @@ module ShopifyApp
       # which won't work for new installs.
       # we need to update the middleware to also update the env['jwt.shopify_domain'] from the query params
       ShopifyApp::Auth::TokenExchange.perform(session_token)
-    rescue ShopifyAPI::Errors::InvalidJwtTokenError
-      # respond_to_invalid_session_token
+      # TODO: Rescue JWT validation errors when bounce page is ready
+      # rescue ShopifyAPI::Errors::InvalidJwtTokenError
+      #   respond_to_invalid_session_token
     end
 
     def session_token
