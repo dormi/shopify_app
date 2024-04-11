@@ -178,45 +178,6 @@ class TokenExchangeControllerTest < ActionController::TestCase
     end
   end
 
-  test "Deletes existing session and re-raises error when an API 401 error is not fixed by with_token_refetch" do
-    ShopifyApp::SessionRepository.store_shop_session(@offline_session)
-    ShopifyAPI::Utils::SessionUtils.stubs(:current_session_id).returns(@offline_session_id)
-
-    api_error = http_response_401_error
-    ApiClass.stubs(:perform).raises(api_error)
-
-    ShopifyAPI::Auth::TokenExchange.expects(:exchange_token).never
-    ShopifyApp::SessionRepository.expects(:delete_session).with(@offline_session_id)
-    @controller.stubs(:with_token_refetch).yields
-
-    with_application_test_routes do
-      response_error = assert_raises(ShopifyAPI::Errors::HttpResponseError) do
-        get :make_api_call, params: { shop: @shop }
-      end
-
-      assert_equal api_error, response_error
-    end
-  end
-
-  test "Raises original HttpResponseError error without deleting session if not a 401 error" do
-    ShopifyApp::SessionRepository.store_shop_session(@offline_session)
-    ShopifyAPI::Utils::SessionUtils.stubs(:current_session_id).returns(@offline_session_id)
-
-    api_error = http_response_500_error
-    ApiClass.stubs(:perform).raises(api_error)
-
-    ShopifyAPI::Auth::TokenExchange.expects(:exchange_token).never
-    ShopifyApp::SessionRepository.expects(:delete_session).never
-
-    with_application_test_routes do
-      response_error = assert_raises(ShopifyAPI::Errors::HttpResponseError) do
-        get :make_api_call, params: { shop: @shop }
-      end
-
-      assert_equal api_error, response_error
-    end
-  end
-
   private
 
   def with_application_test_routes
@@ -227,25 +188,5 @@ class TokenExchangeControllerTest < ActionController::TestCase
       end
       yield
     end
-  end
-
-  def http_response_401_error
-    ShopifyAPI::Errors::HttpResponseError.new(
-      response: ShopifyAPI::Clients::HttpResponse.new(
-        code: 401,
-        headers: {},
-        body: "Invalid API key or access token (unrecognized login or wrong password)",
-      ),
-    )
-  end
-
-  def http_response_500_error
-    ShopifyAPI::Errors::HttpResponseError.new(
-      response: ShopifyAPI::Clients::HttpResponse.new(
-        code: 500,
-        headers: {},
-        body: "Internal Server Error",
-      ),
-    )
   end
 end

@@ -7,16 +7,21 @@ module ShopifyApp
         retrying = false if retrying.nil?
         yield
       rescue ShopifyAPI::Errors::HttpResponseError => error
-        if error.code == 401 && !retrying
+        if error.code != 401
+          ShopifyApp::Logger.debug("Encountered error: #{error.code} - #{error.response.inspect}, re-raising")
+        elsif retrying
+          ShopifyApp::Logger.debug("Shopify API returned a 401 Unauthorized error that was not corrected " \
+            "with token exchange, deleting current session and re-raising")
+          ShopifyApp::SessionRepository.delete_session(session.id)
+        else
           retrying = true
-          ShopifyApp::Logger.debug("Encountered 401 error, exchanging token and retrying with new access token")
+          ShopifyApp::Logger.debug("Shopify API returned a 401 Unauthorized error, exchanging token and " \
+            "retrying with new session")
           new_session = ShopifyApp::Auth::TokenExchange.perform(session_token)
           copy_session_attributes(from: new_session, to: session)
           retry
-        else
-          ShopifyApp::Logger.debug("Encountered error: #{error.code} - #{error.response.inspect}, re-raising")
-          raise
         end
+        raise
       end
 
       private

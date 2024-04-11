@@ -12,12 +12,6 @@ module ShopifyApp
         ShopifyApp::Logger.debug("Activating Shopify session")
         ShopifyAPI::Context.activate_session(current_shopify_session)
         with_token_refetch(current_shopify_session, session_token, &block)
-      rescue ShopifyAPI::Errors::HttpResponseError => error
-        if error.code == 401
-          ShopifyApp::Logger.debug("Admin API returned a 401 Unauthorized error, deleting current access token.")
-          ShopifyApp::SessionRepository.delete_session(current_shopify_session_id)
-        end
-        raise
       ensure
         ShopifyApp::Logger.debug("Deactivating session")
         ShopifyAPI::Context.deactivate_session
