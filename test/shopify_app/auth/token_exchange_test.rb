@@ -50,11 +50,13 @@ class ShopifyApp::Auth::TokenExchangeTest < ActiveSupport::TestCase
       requested_token_type: ONLINE_ACCESS_TOKEN_TYPE,
     ).returns(@online_session)
 
+    assert_nil ShopifyApp::SessionRepository.load_session(@offline_session.id)
     assert_nil ShopifyApp::SessionRepository.load_session(@online_session.id)
 
     new_session = ShopifyApp::Auth::TokenExchange.perform(@session_token)
 
     assert_equal @online_session, new_session
+    assert_equal @offline_session, ShopifyApp::SessionRepository.load_session(@offline_session.id)
     assert_equal @online_session, ShopifyApp::SessionRepository.load_session(@online_session.id)
   end
 
