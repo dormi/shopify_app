@@ -7,8 +7,8 @@ Sessions are used to make contextual API calls for either a shop (offline sessio
 - [Sessions](#sessions)
       - [Table of contents](#table-of-contents)
   - [Sessions](#sessions-1)
-      - [Types of session tokens](#types-of-session-tokens)
-      - [Session token storage](#session-token-storage)
+      - [Types of session access tokens](#types-of-session-access-tokens)
+      - [Session access token storage](#session-access-token-storage)
         - [Shop (offline) token storage](#shop-offline-token-storage)
         - [User (online) token storage](#user-online-token-storage)
         - [In-memory Session Storage for testing](#in-memory-session-storage-for-testing)
@@ -316,5 +316,5 @@ config.user_session_repository = {YOUR_USER_MODEL_CLASS}
 - Sessions storage are now handled with [ShopifyApp::SessionRepository](https://github.com/Shopify/shopify_app/blob/main/lib/shopify_app/session/session_repository.rb)
 - To migrate and specify your shop or user session storage method:
   1. Remove `session_storage` configuration from `config/initializers/shopify_app.rb`
-  2. Follow ["Session Token Storage" instructions](#session-token-storage) to specify the storage repository for shop and user sessions.
+  2. Follow ["Session Access Token Storage" instructions](#session-access-token-storage) to specify the storage repository for shop and user sessions.
      - [Customizing session storage](#customizing-session-storage-with-shopifyappsessionrepository)
