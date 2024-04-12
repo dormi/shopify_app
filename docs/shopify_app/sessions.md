@@ -206,7 +206,7 @@ end
 
 #### Re-fetching an access token when API returns Unauthorized
 
-When using `ShopifyApp::EnsureHasSession` and the `new_embedded_auth_strategy` configuration, any **unhandled** Unauthorized `ShopifyAPI::Errors::HttpResponseError` will cause the app to perform token exchange to fetch a new access token from Shopify and the action to be retried once.
+When using `ShopifyApp::EnsureHasSession` and the `new_embedded_auth_strategy` configuration, any **unhandled** Unauthorized `ShopifyAPI::Errors::HttpResponseError` will cause the app to perform token exchange to fetch a new access token from Shopify and the action to be executed again. This will update and store the new access token to the current session.
 
 ```ruby
 class MyController < ApplicationController
@@ -214,12 +214,16 @@ class MyController < ApplicationController
 
   def index
     client = ShopifyAPI::Clients::Graphql::Admin.new(session: current_shopify_session)
-    client.query(options) # when this raises an Unauthorized error from Shopify, EnsureHasSession will retry the action once after performing token exchange
+
+    # If this call raises an Unauthorized error from Shopify, EnsureHasSession
+    # will execute the action again after performing token exchange.
+    # It will store and use the newly retrieved access token for this and any subsequent calls.
+    client.query(options)
   end
 end
 ```
 
-If the error is being rescued in the action, it's still possible to perform token exchange and retry again with the `with_token_refetch` method provided by `EnsureHasSession`.
+If the error is being rescued in the action, it's still possible to make use of `with_token_refetch` provided by `EnsureHasSession` so that a new access token is fetched and the code is executed again with it. This will also update the specified session object.
 
 ```ruby
 class MyController < ApplicationController
@@ -227,7 +231,11 @@ class MyController < ApplicationController
 
   def index
     client = ShopifyAPI::Clients::Graphql::Admin.new(session: current_shopify_session)
-    with_token_refetch(current_shopify_session, session_token) do # Unauthorized errors raised in this block will initiate token exchange and the block will be retried once
+    with_token_refetch(current_shopify_session, session_token) do
+      # Unauthorized errors raised within this block will initiate token exchange.
+      # `with_token_refetch` will store the new access token and use it
+      # to execute this block again.
+      # Any subsequent calls using the same session instance will have the new token.
       client.query(options)
     end
   rescue => error
@@ -236,7 +244,7 @@ class MyController < ApplicationController
 end
 ```
 
-It's also possible to use `with_token_refetch` on classes other than the controller by including the `ShopifyApp::AdminAPI::WithTokenRefetch` module and passing in the session and the current request's `session_token`, which is provided by `ShopifyApp::EnsureHasSession`.
+It's also possible to use `with_token_refetch` on classes other than the controller by including the `ShopifyApp::AdminAPI::WithTokenRefetch` module and passing in the session along with the current request's `session_token`, which is provided by `ShopifyApp::EnsureHasSession`.
 
 ```ruby
 # my_controller.rb
@@ -255,8 +263,11 @@ class MyClass
 
   def do_things(session, session_token)
     client = ShopifyAPI::Clients::Graphql::Admin.new(session: session)
-    with_token_refetch(session, session_token) do # Unauthorized errors raised in this block will initiate token exchange and the block will be retried once
-      client.query(options)
+    with_token_refetch(session, session_token) do
+      # Unauthorized errors raised within this block will initiate token exchange.
+      # `with_token_refetch` will store the new access token and use it
+      # to execute this block again.
+      # Any subsequent calls using the same session instance will have the new token.
     end
   rescue => error
     # app's specific error handling
