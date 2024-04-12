@@ -18,7 +18,10 @@ module ShopifyApp
           ShopifyApp::Logger.debug("Shopify API returned a 401 Unauthorized error, exchanging token and " \
             "retrying with new session")
           new_session = ShopifyApp::Auth::TokenExchange.perform(session_token)
-          session.copy_attributes_from(new_session)
+          # TODO: use copy_attributes_from when shopify_api is bumped to include it
+          # session.copy_attributes_from(new_session)
+          session.access_token = new_session.access_token
+          session.expires = new_session.expires
           retry
         end
         raise

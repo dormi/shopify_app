@@ -6,10 +6,11 @@ class ShopifyApp::AdminAPI::WithTokenRefetchTest < ActiveSupport::TestCase
   include ShopifyApp::AdminAPI::WithTokenRefetch
 
   def setup
-    @session = ShopifyAPI::Auth::Session.new(id: "session-id", shop: "shop", access_token: "old-token")
+    @session = ShopifyAPI::Auth::Session.new(id: "session-id", shop: "shop", access_token: "old", expires: 1.hour.ago)
     @session_token = "a-session-token"
 
-    @new_session = ShopifyAPI::Auth::Session.new(id: "session-id", shop: "shop", access_token: "new-token")
+    tomorrow = 1.day.from_now
+    @new_session = ShopifyAPI::Auth::Session.new(id: "session-id", shop: "shop", access_token: "new", expires: tomorrow)
 
     @fake_admin_api = stub(:admin_api)
   end
@@ -51,6 +52,7 @@ class ShopifyApp::AdminAPI::WithTokenRefetchTest < ActiveSupport::TestCase
     end
 
     assert_equal @new_session.access_token, @session.access_token
+    assert_equal @new_session.expires, @session.expires
   end
 
   test "#with_token_refetch deletes existing token and re-raises when 401 persists" do
