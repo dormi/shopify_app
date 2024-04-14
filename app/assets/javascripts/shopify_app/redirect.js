@@ -12,11 +12,12 @@
 
     var appBridgeUtils = window['app-bridge']['utilities'];
 
-    if (appBridgeUtils.isShopifyEmbedded()) {
-      window.appBridgeRedirect(targetInfo.url);
-    } else {
-      window.top.location.href = targetInfo.url;
-    }
+    window.top.location.href = targetInfo.url;
+    // if (appBridgeUtils.isShopifyEmbedded()) {
+    //   window.appBridgeRedirect(targetInfo.url);
+    // } else {
+    //   window.top.location.href = targetInfo.url;
+    // }
   }
 
   document.addEventListener("DOMContentLoaded", redirect);
