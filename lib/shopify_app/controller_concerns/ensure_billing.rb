@@ -63,9 +63,9 @@ module ShopifyApp
       subscriptions = response.body["data"]["currentAppInstallation"]["activeSubscriptions"]
 
       subscriptions.each do |subscription|
-        if subscription["name"] == ShopifyApp.configuration.billing.charge_name &&
-            (!Rails.env.production? || !subscription["test"])
-
+        if subscription["name"] == ShopifyApp.configuration.billing.charge_name
+          # && (!Rails.env.production? || !subscription["test"])
+          # Commented to also return true if we are in production or if it is a test subscription
           return true
         end
       end
